@@ -1,0 +1,30 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Archivos de compilación
+dist/
+build/
+*.exe
+
+# Entorno y Secretos
+.env
+.env.local
+.env.production
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDEs y Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Microservicio en Go (Binarios y caché)
+*.out
+*.test
+vendor/
