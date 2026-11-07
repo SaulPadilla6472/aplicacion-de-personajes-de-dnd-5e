@@ -1,5 +1,9 @@
 import express from 'express';
 import cors from 'cors';
+import {
+    createCharacterHandler, getAllCharactersHandler 
+} from './presentation/character.controller.js';
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +20,9 @@ app.get('/health', (_req, res) => {
     service: 'dnd-character-api',
   });
 });
+// Rutas CRUD de Personajes
+app.post('/api/characters', createCharacterHandler);
+app.get('/api/characters', getAllCharactersHandler);
 
 // Inicialización del servidor
 app.listen(PORT, () => {
