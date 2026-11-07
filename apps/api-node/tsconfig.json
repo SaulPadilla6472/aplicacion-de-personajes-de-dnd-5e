@@ -1,0 +1,33 @@
+{
+  // Visit https://aka.ms/tsconfig to read more about this file
+  "compilerOptions": {
+    // File Layout
+    "rootDir": "./src",                    // [MODIFICADO] Carpeta raíz con nuestro código fuente .ts
+    "outDir": "./dist",                    // [MODIFICADO] Carpeta donde se compila el JS resultante
+
+    // Environment Settings
+    // See also https://aka.ms/tsconfig/module
+    "module": "nodenext",                  // Sistema de módulos nativo de Node.js (ESM)
+    "target": "esnext",                    // Genera código JavaScript moderno
+    "types": ["node"],                     // [MODIFICADO] Tipos nativos de Node.js instalados mediante @types/node
+
+    // Other Outputs
+    "sourceMap": true,                     // Genera mapas para depurar código TypeScript en runtime
+    "declaration": true,                  // Genera archivos .d.ts de definición de tipos
+    "declarationMap": true,               // Asocia los archivos .d.ts con su fuente original
+
+    // Stricter Typechecking Options
+    "noUncheckedIndexedAccess": true,      // Evita errores al acceder a índices de arrays o mapas sin comprobar undefined
+    "exactOptionalPropertyTypes": true,    // Garantiza que propiedades opcionales no acepten 'undefined' explícito si no está en el tipo
+
+    // Recommended Options
+    "strict": true,                        // Activa todas las comprobaciones estrictas de tipos
+    "verbatimModuleSyntax": true,          // Fuerza sintaxis explícita para importaciones de tipos (import type)
+    "isolatedModules": true,               // Garantiza compatibilidad con compiladores rápidos como esbuild / tsx
+    "noUncheckedSideEffectImports": true,  // Previene imports con efectos secundarios que no afecten la compilación
+    "moduleDetection": "force",            // Trata a todos los archivos como módulos independientes
+    "skipLibCheck": true,                   // Salta validación de tipos en librerías de node_modules para compilar rápido
+    "esModuleInterop": true               // [AGREGADO] Permite importar librerías CommonJS con sintaxis ESM limpia
+  },
+  "include": ["src/**/*"]                  // [AGREGADO] Restringe la compilación únicamente al directorio src
+}
