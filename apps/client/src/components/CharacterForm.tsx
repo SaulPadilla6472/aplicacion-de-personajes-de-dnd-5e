@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CreateCharacterPayload } from '../types/character.js';
+import { fetchDndRaces, fetchDndClasses, type ApiNamedResource } from '../services/dnd5eApi.js';
 
 interface CharacterFormProps {
   onCharacterCreated: () => void;
@@ -8,9 +9,13 @@ interface CharacterFormProps {
 
 export function CharacterForm({ onCharacterCreated, createCharacterFn }: CharacterFormProps) {
   const [name, setName] = useState('');
-  const [race, setRace] = useState('Human');
-  const [characterClass, setCharacterClass] = useState('Fighter');
+  const [race, setRace] = useState('');
+  const [characterClass, setCharacterClass] = useState('');
   const [level, setLevel] = useState(1);
+
+  const [racesOptions, setRacesOptions] = useState<ApiNamedResource[]>([]);
+  const [classesOptions, setClassesOptions] = useState<ApiNamedResource[]>([]);
+  const [loadingApi, setLoadingApi] = useState<boolean>(true);
 
   const [stats, setStats] = useState({
     strength: 10,
@@ -23,6 +28,21 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([fetchDndRaces(), fetchDndClasses()])
+      .then(([racesData, classesData]) => {
+        setRacesOptions(racesData);
+        setClassesOptions(classesData);
+        if (racesData.length > 0) setRace(racesData[0].name);
+        if (classesData.length > 0) setCharacterClass(classesData[0].name);
+        setLoadingApi(false);
+      })
+      .catch((err) => {
+        console.error('Error cargando datos de dnd5eapi:', err);
+        setLoadingApi(false);
+      });
+  }, []);
 
   const handleStatChange = (statName: keyof typeof stats, value: number) => {
     setStats((prev) => ({ ...prev, [statName]: value }));
@@ -51,69 +71,87 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ background: '#1e1e2e', padding: '1.5rem', borderRadius: '8px', color: '#fff', marginBottom: '2rem' }}>
-      <h2>Crear Nuevo Personaje</h2>
-      {error && <p style={{ color: '#ff6b6b' }}>{error}</p>}
+    <form onSubmit={handleSubmit} style={{ background: '#1a1b26', border: '1px solid #3b4261', padding: '1.5rem', borderRadius: '12px', color: '#c0caf5', marginBottom: '2rem' }}>
+      <h2 style={{ margin: '0 0 1rem 0', color: '#7aa2f7' }}>Crear Nuevo Personaje</h2>
+      {error && <p style={{ color: '#f7768e' }}>{error}</p>}
 
       <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
         <div>
-          <label>Nombre:</label>
+          <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.3rem' }}>Nombre:</label>
           <input
             type="text"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            style={{ width: '100%', padding: '0.5rem', marginTop: '0.2rem' }}
+            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #2ac3de33', background: '#24283b', color: '#fff' }}
           />
         </div>
 
         <div>
-          <label>Raza:</label>
-          <input
-            type="text"
-            required
+          <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.3rem' }}>Raza (D&D 5e API):</label>
+          <select
             value={race}
             onChange={(e) => setRace(e.target.value)}
-            style={{ width: '100%', padding: '0.5rem', marginTop: '0.2rem' }}
-          />
+            disabled={loadingApi}
+            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #2ac3de33', background: '#24283b', color: '#fff' }}
+          >
+            {loadingApi ? (
+              <option>Cargando razas...</option>
+            ) : (
+              racesOptions.map((item) => (
+                <option key={item.index} value={item.name}>
+                  {item.name}
+                </option>
+              ))
+            )}
+          </select>
         </div>
 
         <div>
-          <label>Clase:</label>
-          <input
-            type="text"
-            required
+          <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.3rem' }}>Clase (D&D 5e API):</label>
+          <select
             value={characterClass}
             onChange={(e) => setCharacterClass(e.target.value)}
-            style={{ width: '100%', padding: '0.5rem', marginTop: '0.2rem' }}
-          />
+            disabled={loadingApi}
+            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #2ac3de33', background: '#24283b', color: '#fff' }}
+          >
+            {loadingApi ? (
+              <option>Cargando clases...</option>
+            ) : (
+              classesOptions.map((item) => (
+                <option key={item.index} value={item.name}>
+                  {item.name}
+                </option>
+              ))
+            )}
+          </select>
         </div>
 
         <div>
-          <label>Nivel (1-20):</label>
+          <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.3rem' }}>Nivel (1-20):</label>
           <input
             type="number"
             min={1}
             max={20}
             value={level}
             onChange={(e) => setLevel(Number(e.target.value))}
-            style={{ width: '100%', padding: '0.5rem', marginTop: '0.2rem' }}
+            style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #2ac3de33', background: '#24283b', color: '#fff' }}
           />
         </div>
       </div>
 
-      <h3>Atributos (1 - 30)</h3>
-      <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
+      <h3 style={{ marginTop: '1.5rem', color: '#bb9af7' }}>Atributos Base</h3>
+      <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))' }}>
         {(Object.keys(stats) as Array<keyof typeof stats>).map((statKey) => (
           <div key={statKey}>
-            <label style={{ textTransform: 'capitalize' }}>{statKey}:</label>
+            <label style={{ textTransform: 'capitalize', fontSize: '0.8rem', color: '#7dcfff' }}>{statKey}:</label>
             <input
               type="number"
               min={1}
               max={30}
               value={stats[statKey]}
               onChange={(e) => handleStatChange(statKey, Number(e.target.value))}
-              style={{ width: '100%', padding: '0.5rem', marginTop: '0.2rem' }}
+              style={{ width: '100%', padding: '0.4rem', borderRadius: '6px', border: '1px solid #2ac3de33', background: '#24283b', color: '#fff' }}
             />
           </div>
         ))}
@@ -121,8 +159,8 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
 
       <button
         type="submit"
-        disabled={submitting}
-        style={{ marginTop: '1.5rem', padding: '0.75rem 1.5rem', background: '#6c5ce7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+        disabled={submitting || loadingApi}
+        style={{ marginTop: '1.5rem', padding: '0.75rem 1.5rem', background: '#7aa2f7', color: '#1a1b26', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
       >
         {submitting ? 'Guardando...' : 'Guardar Personaje'}
       </button>
