@@ -16,6 +16,7 @@ export interface Character {
   stats: AbilityScores;
   modifiers: AbilityScores;
   proficiencyBonus: number;
+  proficiencies: string[];
   createdAt: string;
 }
 

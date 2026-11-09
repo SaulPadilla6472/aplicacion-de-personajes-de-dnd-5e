@@ -7,11 +7,27 @@ interface CharacterFormProps {
   createCharacterFn: (payload: CreateCharacterPayload) => Promise<unknown>;
 }
 
+const CLASS_SAVING_THROWS: Record<string, string[]> = {
+  Barbarian: ['strength', 'constitution'],
+  Bard: ['dexterity', 'charisma'],
+  Cleric: ['wisdom', 'charisma'],
+  Druid: ['intelligence', 'wisdom'],
+  Fighter: ['strength', 'constitution'],
+  Monk: ['strength', 'dexterity'],
+  Paladin: ['wisdom', 'charisma'],
+  Ranger: ['strength', 'dexterity'],
+  Rogue: ['dexterity', 'intelligence'],
+  Sorcerer: ['constitution', 'charisma'],
+  Warlock: ['wisdom', 'charisma'],
+  Wizard: ['intelligence', 'wisdom'],
+};
+
 export function CharacterForm({ onCharacterCreated, createCharacterFn }: CharacterFormProps) {
   const [name, setName] = useState('');
   const [race, setRace] = useState('');
   const [characterClass, setCharacterClass] = useState('');
   const [level, setLevel] = useState(1);
+  const [proficiencies, setProficiencies] = useState<string[]>([]);
 
   const [racesOptions, setRacesOptions] = useState<ApiNamedResource[]>([]);
   const [classesOptions, setClassesOptions] = useState<ApiNamedResource[]>([]);
@@ -35,7 +51,11 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
         setRacesOptions(racesData);
         setClassesOptions(classesData);
         if (racesData.length > 0) setRace(racesData[0].name);
-        if (classesData.length > 0) setCharacterClass(classesData[0].name);
+        if (classesData.length > 0) {
+          const initialClass = classesData[0].name;
+          setCharacterClass(initialClass);
+          setProficiencies(CLASS_SAVING_THROWS[initialClass] || []);
+        }
         setLoadingApi(false);
       })
       .catch((err) => {
@@ -43,6 +63,21 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
         setLoadingApi(false);
       });
   }, []);
+
+  const handleClassChange = (selectedClass: string) => {
+    setCharacterClass(selectedClass);
+    if (CLASS_SAVING_THROWS[selectedClass]) {
+      setProficiencies(CLASS_SAVING_THROWS[selectedClass]);
+    }
+  };
+
+  const handleProficiencyToggle = (statName: string) => {
+    setProficiencies((prev) =>
+      prev.includes(statName)
+        ? prev.filter((s) => s !== statName)
+        : [...prev, statName]
+    );
+  };
 
   const handleStatChange = (statName: keyof typeof stats, value: number) => {
     setStats((prev) => ({ ...prev, [statName]: value }));
@@ -60,7 +95,8 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
         characterClass,
         level,
         stats,
-      });
+        proficiencies,
+      } as CreateCharacterPayload);
       setName('');
       onCharacterCreated();
     } catch (err) {
@@ -111,7 +147,7 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
           <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.3rem' }}>Clase (D&D 5e API):</label>
           <select
             value={characterClass}
-            onChange={(e) => setCharacterClass(e.target.value)}
+            onChange={(e) => handleClassChange(e.target.value)}
             disabled={loadingApi}
             style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #2ac3de33', background: '#24283b', color: '#fff' }}
           >
@@ -140,19 +176,27 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
         </div>
       </div>
 
-      <h3 style={{ marginTop: '1.5rem', color: '#bb9af7' }}>Atributos Base</h3>
-      <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))' }}>
+      <h3 style={{ marginTop: '1.5rem', color: '#bb9af7' }}>Atributos Base y Competencias de Salvación</h3>
+      <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
         {(Object.keys(stats) as Array<keyof typeof stats>).map((statKey) => (
-          <div key={statKey}>
-            <label style={{ textTransform: 'capitalize', fontSize: '0.8rem', color: '#7dcfff' }}>{statKey}:</label>
+          <div key={statKey} style={{ background: '#24283b', padding: '0.5rem', borderRadius: '6px' }}>
+            <label style={{ textTransform: 'capitalize', fontSize: '0.8rem', color: '#7dcfff', display: 'block' }}>{statKey}:</label>
             <input
               type="number"
               min={1}
               max={30}
               value={stats[statKey]}
               onChange={(e) => handleStatChange(statKey, Number(e.target.value))}
-              style={{ width: '100%', padding: '0.4rem', borderRadius: '6px', border: '1px solid #2ac3de33', background: '#24283b', color: '#fff' }}
+              style={{ width: '100%', padding: '0.4rem', borderRadius: '6px', border: '1px solid #2ac3de33', background: '#1a1b26', color: '#fff', marginBottom: '0.4rem' }}
             />
+            <label style={{ fontSize: '0.7rem', color: '#a9b1d6', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={proficiencies.includes(statKey)}
+                onChange={() => handleProficiencyToggle(statKey)}
+              />
+              Competente ⭐
+            </label>
           </div>
         ))}
       </div>

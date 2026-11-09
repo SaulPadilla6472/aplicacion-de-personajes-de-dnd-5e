@@ -6,16 +6,38 @@ interface CharacterCardProps {
   character: Character;
 }
 
+// Fallback de tiradas de salvación por defecto por si el personaje no tiene 'proficiencies' guardado
+const DEFAULT_CLASS_THROWS: Record<string, string[]> = {
+  Barbarian: ['strength', 'constitution'],
+  Bard: ['dexterity', 'charisma'],
+  Cleric: ['wisdom', 'charisma'],
+  Druid: ['intelligence', 'wisdom'],
+  Fighter: ['strength', 'constitution'],
+  Monk: ['strength', 'dexterity'],
+  Paladin: ['wisdom', 'charisma'],
+  Ranger: ['strength', 'dexterity'],
+  Rogue: ['dexterity', 'intelligence'],
+  Sorcerer: ['constitution', 'charisma'],
+  Warlock: ['wisdom', 'charisma'],
+  Wizard: ['intelligence', 'wisdom'],
+};
+
 export function CharacterCard({ character }: CharacterCardProps) {
   const [lastRoll, setLastRoll] = useState<RollResult | null>(null);
   const [rollingStat, setRollingStat] = useState<string | null>(null);
 
   const formatMod = (mod: number) => (mod >= 0 ? `+${mod}` : `${mod}`);
 
-  const handleRoll = async (statKey: string, modifier: number) => {
+  // Obtener arreglo de competencias (usando fallback de clase si no existe en el objeto)
+  const activeProficiencies =
+    character.proficiencies && character.proficiencies.length > 0
+      ? character.proficiencies
+      : DEFAULT_CLASS_THROWS[character.characterClass] || [];
+
+  const handleRoll = async (statKey: string, totalModifier: number) => {
     setRollingStat(statKey);
     try {
-      const result = await rollDice(statKey, modifier);
+      const result = await rollDice(statKey, totalModifier);
       setLastRoll(result);
     } catch (err) {
       console.error(err);
@@ -132,39 +154,59 @@ export function CharacterCard({ character }: CharacterCardProps) {
           Object.keys(character.stats) as Array<keyof typeof character.stats>
         ).map((statKey) => {
           const score = character.stats[statKey];
-          const mod = character.modifiers[statKey];
+          const baseMod = character.modifiers[statKey];
+
+          // Comprobación insensible a mayúsculas/minúsculas
+          const isProficient = activeProficiencies.some(
+            (p) => p.toLowerCase() === statKey.toLowerCase()
+          );
+
+          // Modificador total sumando la competencia (+5 al ser Barbarian nivel 15)
+          const totalMod = isProficient ? baseMod + character.proficiencyBonus : baseMod;
+          const avgScore = 10.5 + totalMod;
           const isRolling = rollingStat === statKey;
 
           return (
             <button
               key={statKey}
-              onClick={() => handleRoll(statKey, mod)}
+              onClick={() => handleRoll(statKey, totalMod)}
               disabled={isRolling}
               style={{
                 background: '#16161e',
-                border: '1px solid #292e42',
+                border: isProficient ? '1px solid #7aa2f7' : '1px solid #292e42',
                 borderRadius: '8px',
                 padding: '0.5rem',
                 textAlign: 'center',
                 cursor: 'pointer',
                 color: '#c0caf5',
+                position: 'relative',
               }}
             >
               <div
                 style={{
                   fontSize: '0.7rem',
                   textTransform: 'uppercase',
-                  color: '#565f89',
+                  color: isProficient ? '#7aa2f7' : '#565f89',
                   fontWeight: 'bold',
                 }}
               >
-                {statKey.slice(0, 3)}
+                {statKey.slice(0, 3)} {isProficient && '⭐'}
               </div>
               <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff' }}>
-                {formatMod(mod)}
+                {formatMod(totalMod)}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#7a88cf' }}>
                 {isRolling ? '🎲 ...' : `(${score})`}
+              </div>
+              <div
+                style={{
+                  fontSize: '0.68rem',
+                  color: '#e0af68',
+                  marginTop: '0.2rem',
+                  fontWeight: '600',
+                }}
+              >
+                AVG: {avgScore}
               </div>
             </button>
           );
