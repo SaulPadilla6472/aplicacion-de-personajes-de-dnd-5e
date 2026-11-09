@@ -1,11 +1,28 @@
+import { useState } from 'react';
 import type { Character } from '../types/character.js';
+import { rollDice, type RollResult } from '../services/characterApi.js';
 
 interface CharacterCardProps {
   character: Character;
 }
 
 export function CharacterCard({ character }: CharacterCardProps) {
+  const [lastRoll, setLastRoll] = useState<RollResult | null>(null);
+  const [rollingStat, setRollingStat] = useState<string | null>(null);
+
   const formatMod = (mod: number) => (mod >= 0 ? `+${mod}` : `${mod}`);
+
+  const handleRoll = async (statKey: string, modifier: number) => {
+    setRollingStat(statKey);
+    try {
+      const result = await rollDice(statKey, modifier);
+      setLastRoll(result);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRollingStat(null);
+    }
+  };
 
   return (
     <div
@@ -74,7 +91,36 @@ export function CharacterCard({ character }: CharacterCardProps) {
         </strong>
       </div>
 
-      {/* Rejilla de Atributos y Modificadores */}
+      {/* Resultado visual del dado */}
+      {lastRoll && (
+        <div
+          style={{
+            background: lastRoll.isCriticalSuccess
+              ? '#9ece6a33'
+              : lastRoll.isCriticalFailure
+              ? '#f7768e33'
+              : '#7aa2f722',
+            border: `1px solid ${
+              lastRoll.isCriticalSuccess
+                ? '#9ece6a'
+                : lastRoll.isCriticalFailure
+                ? '#f7768e'
+                : '#7aa2f7'
+            }`,
+            padding: '0.5rem 0.75rem',
+            borderRadius: '8px',
+            textAlign: 'center',
+            fontSize: '0.85rem',
+          }}
+        >
+          🎲 <strong>{lastRoll.statName.toUpperCase()}:</strong> Dado ({lastRoll.d20Roll}) {formatMod(lastRoll.modifier)} ={' '}
+          <strong style={{ fontSize: '1.1rem', color: '#fff' }}>{lastRoll.total}</strong>
+          {lastRoll.isCriticalSuccess && <span style={{ display: 'block', color: '#9ece6a' }}>🔥 ¡ÉXITO CRÍTICO (20)!</span>}
+          {lastRoll.isCriticalFailure && <span style={{ display: 'block', color: '#f7768e' }}>💀 ¡FALLO CRÍTICO (1)!</span>}
+        </div>
+      )}
+
+      {/* Botones de Atributos */}
       <div
         style={{
           display: 'grid',
@@ -87,16 +133,21 @@ export function CharacterCard({ character }: CharacterCardProps) {
         ).map((statKey) => {
           const score = character.stats[statKey];
           const mod = character.modifiers[statKey];
+          const isRolling = rollingStat === statKey;
 
           return (
-            <div
+            <button
               key={statKey}
+              onClick={() => handleRoll(statKey, mod)}
+              disabled={isRolling}
               style={{
                 background: '#16161e',
                 border: '1px solid #292e42',
                 borderRadius: '8px',
                 padding: '0.5rem',
                 textAlign: 'center',
+                cursor: 'pointer',
+                color: '#c0caf5',
               }}
             >
               <div
@@ -112,8 +163,10 @@ export function CharacterCard({ character }: CharacterCardProps) {
               <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff' }}>
                 {formatMod(mod)}
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#7a88cf' }}>({score})</div>
-            </div>
+              <div style={{ fontSize: '0.75rem', color: '#7a88cf' }}>
+                {isRolling ? '🎲 ...' : `(${score})`}
+              </div>
+            </button>
           );
         })}
       </div>

@@ -1,7 +1,9 @@
 import express from 'express';
 import cors from 'cors';
+
+
 import {
-    createCharacterHandler, getAllCharactersHandler 
+    createCharacterHandler, getAllCharactersHandler, rollDiceHandler
 } from './presentation/character.controller.js';
 
 
@@ -23,6 +25,8 @@ app.get('/health', (_req, res) => {
 // Rutas CRUD de Personajes
 app.post('/api/characters', createCharacterHandler);
 app.get('/api/characters', getAllCharactersHandler);
+// Endpoint para simular un lanzamiento de dado d20 con modificador
+app.post('/api/roll', rollDiceHandler);
 
 // Inicialización del servidor
 app.listen(PORT, () => {

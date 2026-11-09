@@ -30,3 +30,28 @@ export const createCharacter = async (
   const result = await response.json();
   return result.data;
 };
+export interface RollResult {
+  statName: string;
+  d20Roll: number;
+  modifier: number;
+  total: number;
+  isCriticalSuccess: boolean;
+  isCriticalFailure: boolean;
+}
+
+export const rollDice = async (statName: string, modifier: number): Promise<RollResult> => {
+  const response = await fetch(`${API_URL}/roll`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ statName, modifier }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Error al realizar la tirada de dado');
+  }
+
+  const result = await response.json();
+  return result.data;
+};
