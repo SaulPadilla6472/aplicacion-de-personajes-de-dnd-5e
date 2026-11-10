@@ -46,11 +46,17 @@ export function App() {
           {characters.length === 0 ? (
             <p style={{ textAlign: 'center', color: '#565f89' }}>No hay personajes creados aún.</p>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-              {characters.map((char) => (
-                <CharacterCard key={char.id} character={char} />
-              ))}
-            </div>
+            <div
+  style={{
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)', // 2 columnas por defecto
+    gap: '1.25rem',
+  }}
+>
+  {characters.map((char) => (
+    <CharacterCard key={char.id} character={char} />
+  ))}
+</div>
           )}
         </div>
       )}

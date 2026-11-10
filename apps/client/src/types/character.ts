@@ -16,8 +16,8 @@ export interface Character {
   stats: AbilityScores;
   modifiers: AbilityScores;
   proficiencyBonus: number;
-  proficiencies: string[];
-  createdAt: string;
+  proficiencies?: string[]; // Competencias en tiradas de salvación
+  skillProficiencies?: string[]; // Competencias en habilidades (Acrobacia, Sigilo, etc.)
 }
 
 export interface CreateCharacterPayload {
@@ -26,4 +26,6 @@ export interface CreateCharacterPayload {
   characterClass: string;
   level: number;
   stats: AbilityScores;
+  proficiencies?: string[];
+  skillProficiencies?: string[];
 }

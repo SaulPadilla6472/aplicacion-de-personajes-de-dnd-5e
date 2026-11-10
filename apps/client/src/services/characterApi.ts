@@ -55,3 +55,33 @@ export const rollDice = async (statName: string, modifier: number): Promise<Roll
   const result = await response.json();
   return result.data;
 };
+
+export interface MassRollResult {
+  statName: string;
+  modifier: number;
+  totalRolls: number;
+  criticalSuccesses: number;
+  criticalFailures: number;
+  averageTotal: number;
+  details: Array<{ roll: number; total: number }>;
+}
+
+export const rollMassiveDiceGo = async (
+  statName: string,
+  modifier: number,
+  count: number = 1000
+): Promise<MassRollResult> => {
+  const response = await fetch('http://localhost:8080/api/go/roll', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ statName, modifier, count }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Error al conectar con el microservicio de Go');
+  }
+
+  return response.json();
+};
