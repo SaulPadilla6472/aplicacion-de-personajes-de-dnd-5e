@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { CreateCharacterPayload } from '../types/character.js';
+import type { CreateCharacterPayload, SpellSlots } from '../types/character.js';
 import { fetchDndRaces, fetchDndClasses, type ApiNamedResource } from '../services/dnd5eApi.js';
 
 interface CharacterFormProps {
@@ -22,7 +22,6 @@ const CLASS_SAVING_THROWS: Record<string, string[]> = {
   Wizard: ['intelligence', 'wisdom'],
 };
 
-// Competencias de Armadura por Clase
 const CLASS_ARMOR_PROFICIENCIES: Record<string, { light: boolean; medium: boolean; heavy: boolean; shield: boolean }> = {
   Barbarian: { light: true, medium: true, heavy: false, shield: true },
   Bard: { light: true, medium: false, heavy: false, shield: false },
@@ -38,11 +37,103 @@ const CLASS_ARMOR_PROFICIENCIES: Record<string, { light: boolean; medium: boolea
   Wizard: { light: false, medium: false, heavy: false, shield: false },
 };
 
+// Competencias de Armas según la clase
+const CLASS_WEAPON_PROFICIENCIES: Record<string, string[]> = {
+  Barbarian: ['Armas Sencillas', 'Armas Marciales'],
+  Bard: ['Armas Sencillas', 'Ballesta Ligera', 'Espada Corta', 'Estoque', 'Espada Larga'],
+  Cleric: ['Armas Sencillas'],
+  Druid: ['Bastón', 'Daga', 'Garrote', 'Hoz', 'Jabalina', 'Lanza', 'Maza', 'Orbe', 'Honda'],
+  Fighter: ['Armas Sencillas', 'Armas Marciales'],
+  Monk: ['Armas Sencillas', 'Espadas Cortas'],
+  Paladin: ['Armas Sencillas', 'Armas Marciales'],
+  Ranger: ['Armas Sencillas', 'Armas Marciales'],
+  Rogue: ['Armas Sencillas', 'Ballesta Ligera', 'Espada Corta', 'Estoque', 'Espada Larga'],
+  Sorcerer: ['Ballesta Ligera', 'Daga', 'Dardo', 'Bastón', 'Honda'],
+  Warlock: ['Armas Sencillas'],
+  Wizard: ['Daga', 'Dardo', 'Bastón', 'Honda', 'Ballesta Ligera'],
+};
+
+// Paquetes de Inicio de Inventario por Clase
+const STARTER_PACKS: Record<string, string[]> = {
+  Barbarian: ["Gran Hacha (Greataxe)", "2x Hacha de Mano", "Paquete de Explorador", "4x Jabalinas"],
+  Bard: ["Estoque (Rapier)", "Paquete de Artista", "Lúdico / Instrumento Musical", "Armadura de Cuero", "Daga"],
+  Cleric: ["Maza (Mace)", "Cota de Escamas", "Ballesta Ligera + 20 Virotes", "Paquete de Sacerdote", "Símbolo Sagrado"],
+  Druid: ["Escudo de Madera", "Cimitarra", "Armadura de Cuero", "Paquete de Explorador", "Foco Druídico"],
+  Fighter: ["Cota de Mallas", "Arma Marcial & Escudo", "Ballesta Ligera + 20 Virotes", "Paquete de Calabozo"],
+  Monk: ["Espada Corta", "Paquete de Explorador", "10x Dardos"],
+  Paladin: ["Arma Marcial & Escudo", "5x Jabalinas", "Paquete de Sacerdote", "Símbolo Sagrado", "Cota de Mallas"],
+  Ranger: ["Cuero Tachonado", "2x Espadas Cortas", "Paquete de Explorador", "Arco Largo + 20 Flechas"],
+  Rogue: ["Estoque", "Arco Corto + 20 Flechas", "Paquete de Ladrón", "Armadura de Cuero", "2x Dagas", "Herramientas de Ladrón"],
+  Sorcerer: ["Ballesta Ligera + 20 Virotes", "Foco Arcano", "Paquete de Explorador", "2x Dagas"],
+  Warlock: ["Ballesta Ligera + 20 Virotes", "Foco Arcano", "Paquete de Erudito", "Armadura de Cuero", "Daga"],
+  Wizard: ["Bastón Mágico", "Foco Arcano", "Libro de Hechizos", "Paquete de Erudito", "Daga"],
+};
+
+// Cálculo básico de ranuras de hechizos según nivel y clase
+const getInitialSpellSlots = (characterClass: string, level: number): { isSpellcaster: boolean; ability?: 'intelligence' | 'wisdom' | 'charisma'; slots?: SpellSlots } => {
+  const fullCasters: Record<string, 'intelligence' | 'wisdom' | 'charisma'> = {
+    Bard: 'charisma',
+    Cleric: 'wisdom',
+    Druid: 'wisdom',
+    Sorcerer: 'charisma',
+    Wizard: 'intelligence',
+  };
+  const warlockCaster = characterClass === 'Warlock';
+  const halfCasters: Record<string, 'wisdom' | 'charisma'> = { Paladin: 'charisma', Ranger: 'wisdom' };
+
+  if (fullCasters[characterClass]) {
+    const l1 = level >= 1 ? (level === 1 ? 2 : level === 2 ? 3 : 4) : 0;
+    const l2 = level >= 3 ? (level === 3 ? 2 : 3) : 0;
+    return {
+      isSpellcaster: true,
+      ability: fullCasters[characterClass],
+      slots: {
+        level1: { total: l1, used: 0 },
+        level2: { total: l2, used: 0 },
+        level3: { total: level >= 5 ? 2 : 0, used: 0 },
+        level4: { total: level >= 7 ? 1 : 0, used: 0 },
+        level5: { total: level >= 9 ? 1 : 0, used: 0 },
+      },
+    };
+  }
+
+  if (warlockCaster) {
+    const pactSlots = level >= 2 ? 2 : 1;
+    return {
+      isSpellcaster: true,
+      ability: 'charisma',
+      slots: {
+        level1: { total: pactSlots, used: 0 },
+        level2: { total: 0, used: 0 },
+        level3: { total: 0, used: 0 },
+        level4: { total: 0, used: 0 },
+        level5: { total: 0, used: 0 },
+      },
+    };
+  }
+
+  if (halfCasters[characterClass] && level >= 2) {
+    return {
+      isSpellcaster: true,
+      ability: halfCasters[characterClass],
+      slots: {
+        level1: { total: 2, used: 0 },
+        level2: { total: level >= 5 ? 2 : 0, used: 0 },
+        level3: { total: 0, used: 0 },
+        level4: { total: 0, used: 0 },
+        level5: { total: 0, used: 0 },
+      },
+    };
+  }
+
+  return { isSpellcaster: false };
+};
+
 export interface ArmorOption {
   name: string;
   type: 'none' | 'light' | 'medium' | 'heavy';
   baseAc: number;
-  maxDexBonus: number | null; // null = sin límite, 0 = sin bonus, 2 = max +2
+  maxDexBonus: number | null;
 }
 
 const ARMOR_LIST: ArmorOption[] = [
@@ -84,7 +175,6 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
   const [proficiencies, setProficiencies] = useState<string[]>([]);
   const [skillProficiencies, setSkillProficiencies] = useState<string[]>([]);
 
-  // Estado de Armadura e Inventario
   const [selectedArmor, setSelectedArmor] = useState<ArmorOption>(ARMOR_LIST[0]);
   const [hasShield, setHasShield] = useState(false);
 
@@ -104,10 +194,8 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Modificador de Destreza
   const dexMod = Math.floor((stats.dexterity - 10) / 2);
 
-  // Competencias de armadura de la clase seleccionada
   const classArmorProf = CLASS_ARMOR_PROFICIENCIES[characterClass] || {
     light: false,
     medium: false,
@@ -115,7 +203,6 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
     shield: false,
   };
 
-  // Cálculo de Clase de Armadura (AC)
   const calculateAC = (): number => {
     let dexBonusApplied = dexMod;
     if (selectedArmor.maxDexBonus !== null) {
@@ -151,7 +238,6 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
     if (CLASS_SAVING_THROWS[selectedClass]) {
       setProficiencies(CLASS_SAVING_THROWS[selectedClass]);
     }
-    // Resetear armadura si la nueva clase no es proficiente
     setSelectedArmor(ARMOR_LIST[0]);
     setHasShield(false);
   };
@@ -177,8 +263,12 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
     setSubmitting(true);
     setError(null);
 
-    const equipmentList: string[] = [selectedArmor.name];
+    // Generar inventario inicial uniendo la armadura + escudo + paquete de inicio
+    const starterItems = STARTER_PACKS[characterClass] || ["Paquete de Aventurero"];
+    const equipmentList: string[] = [selectedArmor.name, ...starterItems];
     if (hasShield && classArmorProf.shield) equipmentList.push('Escudo (+2 AC)');
+
+    const spellInfo = getInitialSpellSlots(characterClass, level);
 
     try {
       await createCharacterFn({
@@ -188,6 +278,10 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
         level,
         armorClass: calculatedAC,
         equipment: equipmentList,
+        weaponProficiencies: CLASS_WEAPON_PROFICIENCIES[characterClass] || ['Armas Sencillas'],
+        isSpellcaster: spellInfo.isSpellcaster,
+        spellcastingAbility: spellInfo.ability,
+        spellSlots: spellInfo.slots,
         stats,
         proficiencies,
         skillProficiencies,
@@ -226,9 +320,8 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
           alignItems: 'start',
         }}
       >
-        {/* COLUMNA IZQUIERDA: Datos Generales, Atributos y Equipamiento */}
+        {/* COLUMNA IZQUIERDA */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Fila Datos Personaje */}
           <div
             style={{
               display: 'grid',
@@ -340,7 +433,7 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
             </div>
           </div>
 
-          {/* Sección Equipamiento y Clase de Armadura (AC) */}
+          {/* Sección Equipamiento, Armadura & Paquete de Inicio */}
           <div style={{ background: '#24283b', padding: '0.85rem', borderRadius: '8px', border: '1px solid #3b4261' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <h3 style={{ margin: 0, color: '#bb9af7', fontSize: '0.9rem' }}>
@@ -351,7 +444,7 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'center', marginBottom: '0.6rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', color: '#a9b1d6', marginBottom: '0.2rem' }}>
                   Armadura Equipable ({characterClass}):
@@ -394,40 +487,23 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
                 </label>
               </div>
             </div>
+
+            {/* Vista Previa de Paquete de Inicio */}
+            <div style={{ fontSize: '0.72rem', color: '#7dcfff', background: '#1a1b26', padding: '0.4rem', borderRadius: '4px' }}>
+              📦 <strong>Paquete de Inicio de {characterClass}:</strong>{' '}
+              {STARTER_PACKS[characterClass]?.join(', ') || 'Equipo estándar'}
+            </div>
           </div>
 
-          {/* Fila Atributos Base en 1 Sola Línea (6 columnas) */}
+          {/* Atributos Base */}
           <div>
             <h3 style={{ margin: '0 0 0.5rem 0', color: '#bb9af7', fontSize: '0.95rem' }}>
               Atributos Base y Salvaciones
             </h3>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(6, 1fr)',
-                gap: '0.4rem',
-              }}
-            >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.4rem' }}>
               {(Object.keys(stats) as Array<keyof typeof stats>).map((statKey) => (
-                <div
-                  key={statKey}
-                  style={{
-                    background: '#24283b',
-                    padding: '0.4rem',
-                    borderRadius: '6px',
-                    textAlign: 'center',
-                  }}
-                >
-                  <label
-                    style={{
-                      textTransform: 'uppercase',
-                      fontSize: '0.65rem',
-                      color: '#7dcfff',
-                      fontWeight: 'bold',
-                      display: 'block',
-                      marginBottom: '0.2rem',
-                    }}
-                  >
+                <div key={statKey} style={{ background: '#24283b', padding: '0.4rem', borderRadius: '6px', textAlign: 'center' }}>
+                  <label style={{ textTransform: 'uppercase', fontSize: '0.65rem', color: '#7dcfff', fontWeight: 'bold', display: 'block', marginBottom: '0.2rem' }}>
                     {statKey.slice(0, 3)}
                   </label>
                   <input
@@ -436,30 +512,9 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
                     max={30}
                     value={stats[statKey]}
                     onChange={(e) => handleStatChange(statKey, Number(e.target.value))}
-                    style={{
-                      width: '100%',
-                      padding: '0.25rem',
-                      borderRadius: '4px',
-                      border: '1px solid #2ac3de33',
-                      background: '#1a1b26',
-                      color: '#fff',
-                      textAlign: 'center',
-                      fontSize: '0.85rem',
-                      boxSizing: 'border-box',
-                      marginBottom: '0.3rem',
-                    }}
+                    style={{ width: '100%', padding: '0.25rem', borderRadius: '4px', border: '1px solid #2ac3de33', background: '#1a1b26', color: '#fff', textAlign: 'center', fontSize: '0.85rem', boxSizing: 'border-box', marginBottom: '0.3rem' }}
                   />
-                  <label
-                    style={{
-                      fontSize: '0.6rem',
-                      color: '#a9b1d6',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.15rem',
-                      cursor: 'pointer',
-                    }}
-                  >
+                  <label style={{ fontSize: '0.6rem', color: '#a9b1d6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.15rem', cursor: 'pointer' }}>
                     <input
                       type="checkbox"
                       checked={proficiencies.includes(statKey)}
@@ -491,56 +546,16 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
           </button>
         </div>
 
-        {/* COLUMNA DERECHA: Apartado de Checkboxes de Habilidades (Skills) */}
-        <div
-          style={{
-            background: '#24283b',
-            padding: '1rem',
-            borderRadius: '8px',
-            border: '1px solid #3b4261',
-          }}
-        >
-          <h3
-            style={{
-              margin: '0 0 0.75rem 0',
-              color: '#bb9af7',
-              fontSize: '0.9rem',
-              borderBottom: '1px solid #3b4261',
-              paddingBottom: '0.4rem',
-            }}
-          >
+        {/* COLUMNA DERECHA */}
+        <div style={{ background: '#24283b', padding: '1rem', borderRadius: '8px', border: '1px solid #3b4261' }}>
+          <h3 style={{ margin: '0 0 0.75rem 0', color: '#bb9af7', fontSize: '0.9rem', borderBottom: '1px solid #3b4261', paddingBottom: '0.4rem' }}>
             Competencias en Habilidades (Skills)
           </h3>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.35rem',
-              maxHeight: '340px',
-              overflowY: 'auto',
-              paddingRight: '0.25rem',
-            }}
-          >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: '380px', overflowY: 'auto', paddingRight: '0.25rem' }}>
             {DND_SKILLS.map((skill) => (
-              <label
-                key={skill.key}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '0.3rem 0.5rem',
-                  background: '#1a1b26',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem',
-                  color: '#c0caf5',
-                }}
-              >
+              <label key={skill.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.3rem 0.5rem', background: '#1a1b26', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', color: '#c0caf5' }}>
                 <span>
-                  {skill.name}{' '}
-                  <small style={{ color: '#565f89' }}>
-                    ({skill.stat.slice(0, 3).toUpperCase()})
-                  </small>
+                  {skill.name} <small style={{ color: '#565f89' }}>({skill.stat.slice(0, 3).toUpperCase()})</small>
                 </span>
                 <input
                   type="checkbox"
