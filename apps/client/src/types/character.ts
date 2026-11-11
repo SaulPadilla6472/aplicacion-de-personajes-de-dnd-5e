@@ -13,6 +13,8 @@ export interface Character {
   race: string;
   characterClass: string;
   level: number;
+  armorClass: number; // <-- Clase de Armadura (AC)
+  equipment: string[]; // <-- Inventario / Equipamiento
   stats: AbilityScores;
   modifiers: AbilityScores;
   proficiencyBonus: number;

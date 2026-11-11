@@ -22,6 +22,39 @@ const CLASS_SAVING_THROWS: Record<string, string[]> = {
   Wizard: ['intelligence', 'wisdom'],
 };
 
+// Competencias de Armadura por Clase
+const CLASS_ARMOR_PROFICIENCIES: Record<string, { light: boolean; medium: boolean; heavy: boolean; shield: boolean }> = {
+  Barbarian: { light: true, medium: true, heavy: false, shield: true },
+  Bard: { light: true, medium: false, heavy: false, shield: false },
+  Cleric: { light: true, medium: true, heavy: true, shield: true },
+  Druid: { light: true, medium: true, heavy: false, shield: true },
+  Fighter: { light: true, medium: true, heavy: true, shield: true },
+  Monk: { light: false, medium: false, heavy: false, shield: false },
+  Paladin: { light: true, medium: true, heavy: true, shield: true },
+  Ranger: { light: true, medium: true, heavy: false, shield: true },
+  Rogue: { light: true, medium: false, heavy: false, shield: false },
+  Sorcerer: { light: false, medium: false, heavy: false, shield: false },
+  Warlock: { light: true, medium: false, heavy: false, shield: false },
+  Wizard: { light: false, medium: false, heavy: false, shield: false },
+};
+
+export interface ArmorOption {
+  name: string;
+  type: 'none' | 'light' | 'medium' | 'heavy';
+  baseAc: number;
+  maxDexBonus: number | null; // null = sin límite, 0 = sin bonus, 2 = max +2
+}
+
+const ARMOR_LIST: ArmorOption[] = [
+  { name: 'Sin Armadura (Ropa Común)', type: 'none', baseAc: 10, maxDexBonus: null },
+  { name: 'Armadura de Cuero (Light)', type: 'light', baseAc: 11, maxDexBonus: null },
+  { name: 'Cuero Tachonado (Light)', type: 'light', baseAc: 12, maxDexBonus: null },
+  { name: 'Camisote de Mallas (Medium)', type: 'medium', baseAc: 13, maxDexBonus: 2 },
+  { name: 'Coraza (Medium)', type: 'medium', baseAc: 14, maxDexBonus: 2 },
+  { name: 'Cota de Mallas (Heavy)', type: 'heavy', baseAc: 16, maxDexBonus: 0 },
+  { name: 'Armadura de Placas (Heavy)', type: 'heavy', baseAc: 18, maxDexBonus: 0 },
+];
+
 export const DND_SKILLS: Array<{ name: string; key: string; stat: string }> = [
   { name: 'Acrobacia (Acrobatics)', key: 'acrobatics', stat: 'dexterity' },
   { name: 'Trato con Animales (Animal Handling)', key: 'animalHandling', stat: 'wisdom' },
@@ -51,6 +84,10 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
   const [proficiencies, setProficiencies] = useState<string[]>([]);
   const [skillProficiencies, setSkillProficiencies] = useState<string[]>([]);
 
+  // Estado de Armadura e Inventario
+  const [selectedArmor, setSelectedArmor] = useState<ArmorOption>(ARMOR_LIST[0]);
+  const [hasShield, setHasShield] = useState(false);
+
   const [racesOptions, setRacesOptions] = useState<ApiNamedResource[]>([]);
   const [classesOptions, setClassesOptions] = useState<ApiNamedResource[]>([]);
   const [loadingApi, setLoadingApi] = useState<boolean>(true);
@@ -66,6 +103,29 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Modificador de Destreza
+  const dexMod = Math.floor((stats.dexterity - 10) / 2);
+
+  // Competencias de armadura de la clase seleccionada
+  const classArmorProf = CLASS_ARMOR_PROFICIENCIES[characterClass] || {
+    light: false,
+    medium: false,
+    heavy: false,
+    shield: false,
+  };
+
+  // Cálculo de Clase de Armadura (AC)
+  const calculateAC = (): number => {
+    let dexBonusApplied = dexMod;
+    if (selectedArmor.maxDexBonus !== null) {
+      dexBonusApplied = Math.min(dexMod, selectedArmor.maxDexBonus);
+    }
+    const shieldBonus = hasShield && classArmorProf.shield ? 2 : 0;
+    return selectedArmor.baseAc + dexBonusApplied + shieldBonus;
+  };
+
+  const calculatedAC = calculateAC();
 
   useEffect(() => {
     Promise.all([fetchDndRaces(), fetchDndClasses()])
@@ -91,6 +151,9 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
     if (CLASS_SAVING_THROWS[selectedClass]) {
       setProficiencies(CLASS_SAVING_THROWS[selectedClass]);
     }
+    // Resetear armadura si la nueva clase no es proficiente
+    setSelectedArmor(ARMOR_LIST[0]);
+    setHasShield(false);
   };
 
   const handleProficiencyToggle = (statName: string) => {
@@ -114,16 +177,21 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
     setSubmitting(true);
     setError(null);
 
+    const equipmentList: string[] = [selectedArmor.name];
+    if (hasShield && classArmorProf.shield) equipmentList.push('Escudo (+2 AC)');
+
     try {
       await createCharacterFn({
         name,
         race,
         characterClass,
         level,
+        armorClass: calculatedAC,
+        equipment: equipmentList,
         stats,
         proficiencies,
         skillProficiencies,
-      });
+      } as CreateCharacterPayload);
       setName('');
       onCharacterCreated();
     } catch (err) {
@@ -150,7 +218,6 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
       </h2>
       {error && <p style={{ color: '#f7768e', textAlign: 'center' }}>{error}</p>}
 
-      {/* Grid Principal de 2 Columnas */}
       <div
         style={{
           display: 'grid',
@@ -159,13 +226,13 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
           alignItems: 'start',
         }}
       >
-        {/* COLUMNA IZQUIERDA: Datos Generales y Atributos */}
+        {/* COLUMNA IZQUIERDA: Datos Generales, Atributos y Equipamiento */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Fila Datos Personaje */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
               gap: '0.75rem',
             }}
           >
@@ -270,6 +337,62 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
                   boxSizing: 'border-box',
                 }}
               />
+            </div>
+          </div>
+
+          {/* Sección Equipamiento y Clase de Armadura (AC) */}
+          <div style={{ background: '#24283b', padding: '0.85rem', borderRadius: '8px', border: '1px solid #3b4261' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <h3 style={{ margin: 0, color: '#bb9af7', fontSize: '0.9rem' }}>
+                Equipamiento Inicial & Clase de Armadura (AC)
+              </h3>
+              <div style={{ background: '#7aa2f722', border: '1px solid #7aa2f7', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.85rem' }}>
+                🛡️ AC Calculada: <strong style={{ color: '#fff' }}>{calculatedAC}</strong>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'center' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', color: '#a9b1d6', marginBottom: '0.2rem' }}>
+                  Armadura Equipable ({characterClass}):
+                </label>
+                <select
+                  value={selectedArmor.name}
+                  onChange={(e) => {
+                    const armor = ARMOR_LIST.find((a) => a.name === e.target.value);
+                    if (armor) setSelectedArmor(armor);
+                  }}
+                  style={{ width: '100%', padding: '0.4rem', borderRadius: '6px', border: '1px solid #2ac3de33', background: '#1a1b26', color: '#fff', fontSize: '0.8rem' }}
+                >
+                  {ARMOR_LIST.map((armor) => {
+                    const isProficient =
+                      armor.type === 'none' ||
+                      (armor.type === 'light' && classArmorProf.light) ||
+                      (armor.type === 'medium' && classArmorProf.medium) ||
+                      (armor.type === 'heavy' && classArmorProf.heavy);
+
+                    return (
+                      <option key={armor.name} value={armor.name} disabled={!isProficient}>
+                        {armor.name} {!isProficient ? '⛔ (Sin Competencia)' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '1rem' }}>
+                <input
+                  type="checkbox"
+                  id="shieldCheck"
+                  checked={hasShield}
+                  disabled={!classArmorProf.shield}
+                  onChange={(e) => setHasShield(e.target.checked)}
+                  style={{ cursor: classArmorProf.shield ? 'pointer' : 'not-allowed' }}
+                />
+                <label htmlFor="shieldCheck" style={{ fontSize: '0.75rem', color: classArmorProf.shield ? '#c0caf5' : '#565f89', cursor: classArmorProf.shield ? 'pointer' : 'not-allowed' }}>
+                  Escudo (+2 AC) {!classArmorProf.shield && '⛔'}
+                </label>
+              </div>
             </div>
           </div>
 
@@ -393,7 +516,7 @@ export function CharacterForm({ onCharacterCreated, createCharacterFn }: Charact
               display: 'flex',
               flexDirection: 'column',
               gap: '0.35rem',
-              maxHeight: '260px',
+              maxHeight: '340px',
               overflowY: 'auto',
               paddingRight: '0.25rem',
             }}
